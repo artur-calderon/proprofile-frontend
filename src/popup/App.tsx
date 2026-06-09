@@ -26,6 +26,7 @@ export default function App(): JSX.Element {
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [showDashboard, setShowDashboard] = useState(false)
+  const [dashboardMode, setDashboardMode] = useState<'edit' | 'create'>('edit')
   const [expanded, setExpanded] = useState<ExpandedSection>(null)
   const [expandedExperienceId, setExpandedExperienceId] = useState<string | null>(null)
 
@@ -69,12 +70,14 @@ export default function App(): JSX.Element {
     setTimeout(() => setMessage(null), 2000)
   }
 
-  function openDashboard() {
+  function openDashboard(mode: 'edit' | 'create' = 'edit') {
+    setDashboardMode(mode)
     setShowDashboard(true)
   }
 
   async function closeDashboard() {
     setShowDashboard(false)
+    setDashboardMode('edit')
     const [p, id] = await Promise.all([
       storageService.getAllProfiles(),
       storageService.getActiveProfileId()
@@ -100,7 +103,11 @@ export default function App(): JSX.Element {
   return (
     <div className="popup-shell">
       {showDashboard ? (
-        <OptionsApp embedded onBack={closeDashboard} />
+        <OptionsApp
+          embedded
+          onBack={closeDashboard}
+          startInCreateMode={dashboardMode === 'create'}
+        />
       ) : (
         <>
           <header className="popup-header">
@@ -136,10 +143,22 @@ export default function App(): JSX.Element {
                   <span className="material-symbols-outlined select-chevron">expand_more</span>
                 </div>
               )}
-              <button type="button" className="btn-create" onClick={openDashboard}>
-                <span className="material-symbols-outlined">add</span>
-                Criar
-              </button>
+              <div className="profile-actions">
+                {activeProfile && (
+                  <button type="button" className="btn-profile-action btn-profile-action--edit" onClick={() => openDashboard('edit')}>
+                    <span className="material-symbols-outlined">edit</span>
+                    Editar
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={`btn-profile-action btn-profile-action--create${activeProfile ? ' btn-profile-action--secondary' : ''}`}
+                  onClick={() => openDashboard('create')}
+                >
+                  <span className="material-symbols-outlined">add</span>
+                  Criar
+                </button>
+              </div>
             </div>
 
             {!profiles?.length && profiles !== null && (
@@ -401,7 +420,7 @@ export default function App(): JSX.Element {
               <span className="material-symbols-outlined">picture_as_pdf</span>
               Baixar PDF
             </button>
-            <button type="button" className="btn-footer-primary" onClick={openDashboard}>
+            <button type="button" className="btn-footer-primary" onClick={() => openDashboard(activeProfile ? 'edit' : 'create')}>
               <span className="material-symbols-outlined">dashboard</span>
               Abrir Dashboard
             </button>

@@ -44,9 +44,10 @@ const EMPTY_EXPERIENCE = (): Experience => ({
 interface AppProps {
   embedded?: boolean
   onBack?: () => void
+  startInCreateMode?: boolean
 }
 
-export default function App({ embedded = false, onBack }: AppProps): JSX.Element {
+export default function App({ embedded = false, onBack, startInCreateMode = false }: AppProps): JSX.Element {
   const [profiles, setProfiles] = useState<Profile[] | null>(null)
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null)
   const [form, setForm] = useState<DashboardForm>(profileToForm(null))
@@ -66,6 +67,7 @@ export default function App({ embedded = false, onBack }: AppProps): JSX.Element
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null)
   const [experienceDraft, setExperienceDraft] = useState<Experience>(EMPTY_EXPERIENCE())
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const createModeHandled = useRef(false)
 
   const activeProfile = profiles?.find((p) => p.id === activeProfileId) ?? null
 
@@ -147,6 +149,12 @@ export default function App({ embedded = false, onBack }: AppProps): JSX.Element
     setProfiles(all)
     await selectProfile(profile.id)
   }
+
+  useEffect(() => {
+    if (!startInCreateMode || profiles === null || createModeHandled.current) return
+    createModeHandled.current = true
+    void createProfile()
+  }, [startInCreateMode, profiles])
 
   async function saveProfile() {
     if (!activeProfile || isSaving) return

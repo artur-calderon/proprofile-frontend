@@ -200,6 +200,66 @@ body {
   gap: 0.5rem;
 }
 
+.profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+.btn-profile-action {
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: background-color 0.15s, transform 0.1s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.btn-profile-action .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.btn-profile-action--edit {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.btn-profile-action--edit:hover {
+  background: var(--primary-container);
+}
+
+.btn-profile-action--create {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.btn-profile-action--create:hover {
+  background: var(--primary-container);
+}
+
+.btn-profile-action--secondary {
+  background: var(--surface-container-lowest);
+  color: var(--on-surface-variant);
+  border: 1px solid var(--outline-variant);
+}
+
+.btn-profile-action--secondary:hover {
+  background: var(--surface-variant);
+  border-color: var(--outline);
+}
+
+.btn-profile-action:active {
+  transform: scale(0.95);
+}
+
 .select-wrap {
   position: relative;
   flex: 1;
@@ -234,6 +294,7 @@ body {
   font-size: 20px;
 }
 
+/* legacy alias — kept for compatibility */
 .btn-create {
   background: var(--primary);
   color: var(--on-primary);
