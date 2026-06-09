@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Reuso de Conteúdo - MVP",
+  "description": "Ajuda candidatos a reutilizar informações durante processos seletivos.",
+  "version": "0.1.0",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+        "128": "icons/icon-128.svg"
+    }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "storage",
+    "scripting",
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+     "128": "icons/icon-128.svg"
+  }
+}
