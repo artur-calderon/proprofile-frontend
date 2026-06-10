@@ -1,4 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { ApiError } from '../services/apiClient'
+import type { AuthUser } from '../services/authService'
+import {
+  createProfileOnServer,
+  fetchAndCacheProfiles,
+  saveProfileToServer
+} from '../services/profileSyncService'
 import storageService from '../services/storageService'
 import {
   attachResumeToProfile,
@@ -6,9 +13,25 @@ import {
   getResumeMeta,
   removeResumeFromProfile
 } from '../services/resumeFileService'
-import { createEmptyProfile, formatExperiencePeriod } from '../shared/profileFormatters'
+import {
+  buildCompletionDate,
+  daysInMonth,
+  educationDisplayName,
+  formatEducationSubtitle,
+  formatExperiencePeriod,
+  parseCompletionDateParts
+} from '../shared/profileFormatters'
+import SavedJobsPanel from '../components/SavedJobsPanel'
+import {
+  canAttachResume,
+  canCreateProfile,
+  profileLimitMessage,
+  resumeLimitMessage
+} from '../shared/planLimits'
 import { Education, Experience, Profile } from '../shared/types'
 import './options.css'
+
+type DashboardTab = 'profile' | 'savedJobs'
 
 function uid(prefix = '') {
   return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -41,20 +64,63 @@ const EMPTY_EXPERIENCE = (): Experience => ({
   endDate: null
 })
 
+const EMPTY_EDUCATION = (): Education => ({
+  id: uid('edu_'),
+  name: '',
+  title: '',
+  institution: '',
+  completionDate: null
+})
+
+const EDUCATION_MONTHS = [
+  { value: '1', label: 'Janeiro' },
+  { value: '2', label: 'Fevereiro' },
+  { value: '3', label: 'Março' },
+  { value: '4', label: 'Abril' },
+  { value: '5', label: 'Maio' },
+  { value: '6', label: 'Junho' },
+  { value: '7', label: 'Julho' },
+  { value: '8', label: 'Agosto' },
+  { value: '9', label: 'Setembro' },
+  { value: '10', label: 'Outubro' },
+  { value: '11', label: 'Novembro' },
+  { value: '12', label: 'Dezembro' }
+]
+
+const EDUCATION_YEAR_OPTIONS = Array.from(
+  { length: new Date().getFullYear() + 6 - 1950 },
+  (_, index) => String(new Date().getFullYear() + 5 - index)
+)
+
 interface AppProps {
   embedded?: boolean
+  user?: AuthUser | null
   onBack?: () => void
   startInCreateMode?: boolean
+  onProfilesChange?: () => void
 }
 
-export default function App({ embedded = false, onBack, startInCreateMode = false }: AppProps): JSX.Element {
+export default function App({
+  embedded = false,
+  user = null,
+  onBack,
+  startInCreateMode = false,
+  onProfilesChange
+}: AppProps): JSX.Element {
   const [profiles, setProfiles] = useState<Profile[] | null>(null)
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null)
   const [form, setForm] = useState<DashboardForm>(profileToForm(null))
   const [newSkill, setNewSkill] = useState('')
   const [bulkSkills, setBulkSkills] = useState('')
-  const [newEducationName, setNewEducationName] = useState('')
+  const [showEducationForm, setShowEducationForm] = useState(false)
+  const [editingEducationId, setEditingEducationId] = useState<string | null>(null)
+  const [educationDraft, setEducationDraft] = useState<Education>(EMPTY_EDUCATION())
+  const [educationNotCompleted, setEducationNotCompleted] = useState(true)
+  const [educationDateYear, setEducationDateYear] = useState('')
+  const [educationDateMonth, setEducationDateMonth] = useState('')
+  const [educationDateDay, setEducationDateDay] = useState('')
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<DashboardTab>('profile')
   const [statusPulse, setStatusPulse] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
@@ -70,20 +136,37 @@ export default function App({ embedded = false, onBack, startInCreateMode = fals
   const createModeHandled = useRef(false)
 
   const activeProfile = profiles?.find((p) => p.id === activeProfileId) ?? null
+  const allowCreateProfile = user ? canCreateProfile(user.plan, profiles?.length ?? 0) : false
+
+  const loadProfiles = useCallback(async () => {
+    let p: Profile[]
+    if (user) {
+      try {
+        p = await fetchAndCacheProfiles()
+      } catch {
+        p = await storageService.getAllProfiles()
+        showToastRef.current?.('Erro ao sincronizar. Usando dados locais.', 'error', 4000)
+      }
+    } else {
+      p = await storageService.getAllProfiles()
+    }
+
+    const activeId = await storageService.getActiveProfileId()
+    setProfiles(p)
+    const resolvedId = activeId && p.some((x) => x.id === activeId) ? activeId : p[0]?.id ?? null
+    setActiveProfileId(resolvedId)
+    const profile = p.find((x) => x.id === resolvedId) ?? null
+    setForm(profileToForm(profile))
+    return p
+  }, [user])
+
+  const showToastRef = useRef<
+    ((message: string, type?: 'success' | 'error' | 'info', duration?: number) => void) | null
+  >(null)
 
   useEffect(() => {
-    ;(async () => {
-      const [p, activeId] = await Promise.all([
-        storageService.getAllProfiles(),
-        storageService.getActiveProfileId()
-      ])
-      setProfiles(p)
-      const resolvedId = activeId && p.some((x) => x.id === activeId) ? activeId : p[0]?.id ?? null
-      setActiveProfileId(resolvedId)
-      const profile = p.find((x) => x.id === resolvedId) ?? null
-      setForm(profileToForm(profile))
-    })()
-  }, [])
+    void loadProfiles()
+  }, [loadProfiles])
 
   useEffect(() => {
     if (!activeProfileId || !profiles) return
@@ -140,14 +223,32 @@ export default function App({ embedded = false, onBack, startInCreateMode = fals
     }, duration)
   }
 
+  showToastRef.current = showToast
+
   async function createProfile() {
+    if (user && !canCreateProfile(user.plan, profiles?.length ?? 0)) {
+      showToast(profileLimitMessage(user.plan), 'error')
+      return
+    }
+
     const name = window.prompt('Nome do novo perfil:')
     if (!name?.trim()) return
-    const profile = createEmptyProfile(uid('profile_'), name.trim())
-    await storageService.addProfile(profile)
-    const all = await storageService.getAllProfiles()
-    setProfiles(all)
-    await selectProfile(profile.id)
+
+    try {
+      if (user) {
+        const profile = await createProfileOnServer(name.trim())
+        const all = await storageService.getAllProfiles()
+        setProfiles(all)
+        await selectProfile(profile.id)
+        onProfilesChange?.()
+        showToast('Perfil criado e sincronizado!', 'success')
+      } else {
+        showToast('Faça login para criar perfis.', 'error')
+      }
+    } catch (err) {
+      const message = err instanceof ApiError || err instanceof Error ? err.message : 'Erro ao criar perfil.'
+      showToast(message, 'error', 4000)
+    }
   }
 
   useEffect(() => {
@@ -158,6 +259,11 @@ export default function App({ embedded = false, onBack, startInCreateMode = fals
 
   async function saveProfile() {
     if (!activeProfile || isSaving) return
+    if (!user) {
+      showToast('Faça login para salvar perfis.', 'error')
+      return
+    }
+
     setIsSaving(true)
     try {
       const updated: Profile = {
@@ -168,13 +274,27 @@ export default function App({ embedded = false, onBack, startInCreateMode = fals
         experiences: form.experiences,
         education: form.education
       }
-      await storageService.updateProfile(updated)
-      setProfiles(await storageService.getAllProfiles())
+
+      const saved = await saveProfileToServer(updated)
+      const all = await storageService.getAllProfiles()
+      setProfiles(all)
+
+      if (saved.id !== activeProfileId) {
+        setActiveProfileId(saved.id)
+        await storageService.setActiveProfileId(saved.id)
+      }
+
+      setForm(profileToForm(saved))
+      onProfilesChange?.()
       setSaveSucceeded(true)
       setTimeout(() => setSaveSucceeded(false), 2500)
-      showToast('Perfil salvo com sucesso!', 'success')
-    } catch {
-      showToast('Erro ao salvar o perfil. Tente novamente.', 'error', 4000)
+      showToast('Perfil salvo e sincronizado!', 'success')
+    } catch (err) {
+      const message =
+        err instanceof ApiError || err instanceof Error
+          ? err.message
+          : 'Erro ao salvar o perfil. Tente novamente.'
+      showToast(message, 'error', 4000)
     } finally {
       setIsSaving(false)
     }
@@ -204,14 +324,75 @@ export default function App({ embedded = false, onBack, startInCreateMode = fals
     setForm((f) => ({ ...f, skills: f.skills.filter((s) => s !== skill) }))
   }
 
-  function addEducation() {
-    const name = newEducationName.trim()
-    if (!name) return
-    setForm((f) => ({
-      ...f,
-      education: [...f.education, { id: uid('edu_'), name }]
-    }))
-    setNewEducationName('')
+  function resetEducationDateFields(completionDate: string | null | undefined) {
+    const parts = parseCompletionDateParts(completionDate)
+    setEducationNotCompleted(!completionDate)
+    setEducationDateYear(parts.year)
+    setEducationDateMonth(parts.month)
+    setEducationDateDay(parts.day)
+  }
+
+  function openNewEducationForm() {
+    setEditingEducationId(null)
+    setEducationDraft(EMPTY_EDUCATION())
+    resetEducationDateFields(null)
+    setShowEducationForm(true)
+  }
+
+  function openEditEducation(edu: Education) {
+    setEditingEducationId(edu.id)
+    setEducationDraft({ ...edu })
+    resetEducationDateFields(edu.completionDate)
+    setShowEducationForm(true)
+  }
+
+  function saveEducationDraft() {
+    const title = (educationDraft.title ?? educationDraft.name).trim()
+    const institution = (educationDraft.institution ?? '').trim()
+    if (!title || !institution) {
+      alert('Preencha pelo menos curso e instituição.')
+      return
+    }
+
+    let completionDate: string | null = null
+    if (!educationNotCompleted) {
+      if (!educationDateYear || !educationDateMonth || !educationDateDay) {
+        alert('Selecione ano, mês e dia de conclusão, ou marque "Ainda não concluí".')
+        return
+      }
+      completionDate = buildCompletionDate(educationDateYear, educationDateMonth, educationDateDay)
+      if (!completionDate) {
+        alert('Data de conclusão inválida.')
+        return
+      }
+    }
+
+    const saved: Education = {
+      ...educationDraft,
+      title,
+      institution,
+      name: educationDisplayName(title, institution),
+      completionDate
+    }
+    if (editingEducationId) {
+      setForm((f) => ({
+        ...f,
+        education: f.education.map((e) => (e.id === editingEducationId ? saved : e))
+      }))
+    } else {
+      setForm((f) => ({ ...f, education: [...f.education, saved] }))
+    }
+    setShowEducationForm(false)
+    setEditingEducationId(null)
+    setEducationDraft(EMPTY_EDUCATION())
+    resetEducationDateFields(null)
+  }
+
+  function cancelEducationForm() {
+    setShowEducationForm(false)
+    setEditingEducationId(null)
+    setEducationDraft(EMPTY_EDUCATION())
+    resetEducationDateFields(null)
   }
 
   function removeEducation(id: string) {
@@ -266,16 +447,25 @@ export default function App({ embedded = false, onBack, startInCreateMode = fals
 
   async function handleResumeUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !activeProfile) return
+    if (!file || !activeProfile || !profiles) return
+
+    if (user && !activeProfile.resumeId) {
+      const attachmentCount = profiles.filter((p) => p.resumeId).length
+      if (!canAttachResume(user.plan, attachmentCount)) {
+        showToast(resumeLimitMessage(user.plan), 'error', 4000)
+        e.target.value = ''
+        return
+      }
+    }
 
     setResumeUploading(true)
     try {
-      await attachResumeToProfile(activeProfile, file)
-      setProfiles(await storageService.getAllProfiles())
+      const updated = await attachResumeToProfile(activeProfile, file, user?.plan, profiles)
+      setProfiles((current) => current?.map((p) => (p.id === updated.id ? updated : p)) ?? null)
       setResumeFileName(file.name)
       showToast('Currículo anexado com sucesso!', 'success')
     } catch (err) {
-      alert(String(err))
+      showToast(err instanceof Error ? err.message : String(err), 'error', 4000)
     } finally {
       setResumeUploading(false)
       e.target.value = ''
@@ -285,8 +475,8 @@ export default function App({ embedded = false, onBack, startInCreateMode = fals
   async function handleRemoveResume() {
     if (!activeProfile?.resumeId) return
     if (!window.confirm('Remover o currículo deste perfil?')) return
-    await removeResumeFromProfile(activeProfile)
-    setProfiles(await storageService.getAllProfiles())
+    const updated = await removeResumeFromProfile(activeProfile)
+    setProfiles((current) => current?.map((p) => (p.id === updated.id ? updated : p)) ?? null)
     setResumeFileName(null)
     showToast('Currículo removido', 'info')
   }
@@ -315,58 +505,92 @@ export default function App({ embedded = false, onBack, startInCreateMode = fals
           </div>
         </div>
 
-        <div className="profile-selector-wrap" ref={dropdownRef}>
+        <nav className="dashboard-tabs" aria-label="Seções do dashboard">
           <button
             type="button"
-            className="profile-dropdown-btn"
-            onClick={() => setDropdownOpen((o) => !o)}
+            className={`dashboard-tab${activeTab === 'profile' ? ' dashboard-tab--active' : ''}`}
+            onClick={() => setActiveTab('profile')}
           >
-            <div className="profile-dropdown-btn-inner">
-              <span className="profile-active-dot" />
-              <span className="profile-dropdown-label">
-                {activeProfile ? `${activeProfile.name} (Ativo)` : 'Nenhum perfil — crie um'}
-              </span>
-            </div>
-            <span className="material-symbols-outlined" style={{ color: 'var(--outline)' }}>
-              expand_more
-            </span>
+            Perfil
           </button>
+          <button
+            type="button"
+            className={`dashboard-tab${activeTab === 'savedJobs' ? ' dashboard-tab--active' : ''}`}
+            onClick={() => setActiveTab('savedJobs')}
+          >
+            Histórico de vagas
+          </button>
+        </nav>
 
-          {dropdownOpen && profiles && (
-            <div className="profile-dropdown-menu">
-              {profiles.length === 0 && (
-                <div className="profile-dropdown-empty">Nenhum perfil ainda</div>
-              )}
-              {profiles.map((p) => (
+        {activeTab === 'profile' && (
+          <div className="profile-selector-wrap" ref={dropdownRef}>
+            <button
+              type="button"
+              className="profile-dropdown-btn"
+              onClick={() => setDropdownOpen((o) => !o)}
+            >
+              <div className="profile-dropdown-btn-inner">
+                <span className="profile-active-dot" />
+                <span className="profile-dropdown-label">
+                  {activeProfile ? `${activeProfile.name} (Ativo)` : 'Nenhum perfil — crie um'}
+                </span>
+              </div>
+              <span className="material-symbols-outlined" style={{ color: 'var(--outline)' }}>
+                expand_more
+              </span>
+            </button>
+
+            {dropdownOpen && profiles && (
+              <div className="profile-dropdown-menu">
+                {profiles.length === 0 && (
+                  <div className="profile-dropdown-empty">Nenhum perfil ainda</div>
+                )}
+                {profiles.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="profile-dropdown-item"
+                    onClick={() => selectProfile(p.id)}
+                  >
+                    {p.name}
+                    {p.id === activeProfileId ? ' (Ativo)' : ''}
+                  </button>
+                ))}
                 <button
-                  key={p.id}
                   type="button"
-                  className="profile-dropdown-item"
-                  onClick={() => selectProfile(p.id)}
+                  className="profile-dropdown-item profile-dropdown-item--create"
+                  onClick={createProfile}
+                  disabled={user ? !allowCreateProfile : true}
+                  title={user && !allowCreateProfile ? profileLimitMessage(user.plan) : undefined}
                 >
-                  {p.name}
-                  {p.id === activeProfileId ? ' (Ativo)' : ''}
+                  <span className="material-symbols-outlined">add</span>
+                  Criar novo perfil
                 </button>
-              ))}
-              <button
-                type="button"
-                className="profile-dropdown-item profile-dropdown-item--create"
-                onClick={createProfile}
-              >
-                <span className="material-symbols-outlined">add</span>
-                Criar novo perfil
-              </button>
-            </div>
-          )}
-        </div>
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       <main className="dashboard-main custom-scrollbar">
-        {!activeProfile ? (
+        {activeTab === 'savedJobs' && user ? (
+          <SavedJobsPanel user={user} />
+        ) : activeTab === 'savedJobs' ? (
+          <div className="dashboard-empty">
+            <span className="material-symbols-outlined">login</span>
+            <p>Faça login para acessar o histórico de vagas.</p>
+          </div>
+        ) : !activeProfile ? (
           <div className="dashboard-empty">
             <span className="material-symbols-outlined">person_add</span>
             <p>Crie um perfil para começar a preencher as seções.</p>
-            <button type="button" className="btn-save" onClick={createProfile}>
+            <button
+              type="button"
+              className="btn-save"
+              onClick={createProfile}
+              disabled={user ? !allowCreateProfile : true}
+              title={user && !allowCreateProfile ? profileLimitMessage(user.plan) : undefined}
+            >
               Criar perfil
             </button>
           </div>
@@ -665,68 +889,218 @@ export default function App({ embedded = false, onBack, startInCreateMode = fals
             </section>
 
             <section className="dashboard-card">
-              <h3 className="section-heading">
-                <span className="material-symbols-outlined">school</span>
-                Formação
-              </h3>
-              <div className="skill-add-row">
-                <input
-                  className="field-input"
-                  placeholder="Ex: Linux Administration"
-                  type="text"
-                  value={newEducationName}
-                  onChange={(e) => setNewEducationName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addEducation()}
-                />
-                <button type="button" className="btn-add-skill" onClick={addEducation}>
-                  Add
+              <div className="section-heading-row">
+                <h3 className="section-heading">
+                  <span className="material-symbols-outlined">school</span>
+                  Formação
+                </h3>
+                <button
+                  type="button"
+                  className="dashboard-icon-btn dashboard-icon-btn--primary"
+                  title="Adicionar formação"
+                  onClick={openNewEducationForm}
+                >
+                  <span className="material-symbols-outlined">add_circle</span>
                 </button>
               </div>
-              <p className="field-hint">Somente o nome do curso ou certificação.</p>
-              {form.education.map((edu) => (
-                <div key={edu.id} className="education-item education-item--row">
-                  <span className="education-item-title">{edu.name}</span>
-                  <button
-                    type="button"
-                    className="experience-action-btn experience-action-btn--delete"
-                    onClick={() => removeEducation(edu.id)}
-                  >
-                    <span className="material-symbols-outlined">delete</span>
-                  </button>
+
+              {showEducationForm && (
+                <div className="inline-form">
+                  <div className="inline-form-title">
+                    {editingEducationId ? 'Editar formação' : 'Nova formação'}
+                  </div>
+                  <label className="field-label">Curso / Certificação</label>
+                  <input
+                    className="field-input"
+                    placeholder="Ex: Bacharelado em Desenvolvimento de Software"
+                    value={educationDraft.title ?? educationDraft.name}
+                    onChange={(e) =>
+                      setEducationDraft((d) => ({ ...d, title: e.target.value, name: e.target.value }))
+                    }
+                  />
+                  <label className="field-label">Instituição</label>
+                  <input
+                    className="field-input"
+                    placeholder="Ex: Universidade Federal"
+                    value={educationDraft.institution ?? ''}
+                    onChange={(e) =>
+                      setEducationDraft((d) => ({ ...d, institution: e.target.value }))
+                    }
+                  />
+                  <label className="field-label">Data de conclusão</label>
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={educationNotCompleted}
+                      onChange={(e) => {
+                        setEducationNotCompleted(e.target.checked)
+                        if (e.target.checked) {
+                          setEducationDateYear('')
+                          setEducationDateMonth('')
+                          setEducationDateDay('')
+                        }
+                      }}
+                    />
+                    Ainda não concluí
+                  </label>
+                  {!educationNotCompleted && (
+                    <div className="inline-form-row inline-form-row--3">
+                      <div>
+                        <label className="field-label">Ano</label>
+                        <select
+                          className="field-select"
+                          value={educationDateYear}
+                          onChange={(e) => {
+                            const year = e.target.value
+                            setEducationDateYear(year)
+                            if (year && educationDateMonth && educationDateDay) {
+                              const maxDay = daysInMonth(
+                                Number(year),
+                                Number(educationDateMonth)
+                              )
+                              if (Number(educationDateDay) > maxDay) setEducationDateDay('')
+                            }
+                          }}
+                        >
+                          <option value="">Selecione</option>
+                          {EDUCATION_YEAR_OPTIONS.map((year) => (
+                            <option key={year} value={year}>
+                              {year}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="field-label">Mês</label>
+                        <select
+                          className="field-select"
+                          value={educationDateMonth}
+                          onChange={(e) => {
+                            const month = e.target.value
+                            setEducationDateMonth(month)
+                            if (educationDateYear && month && educationDateDay) {
+                              const maxDay = daysInMonth(
+                                Number(educationDateYear),
+                                Number(month)
+                              )
+                              if (Number(educationDateDay) > maxDay) setEducationDateDay('')
+                            }
+                          }}
+                        >
+                          <option value="">Selecione</option>
+                          {EDUCATION_MONTHS.map((month) => (
+                            <option key={month.value} value={month.value}>
+                              {month.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="field-label">Dia</label>
+                        <select
+                          className="field-select"
+                          value={educationDateDay}
+                          onChange={(e) => setEducationDateDay(e.target.value)}
+                          disabled={!educationDateYear || !educationDateMonth}
+                        >
+                          <option value="">Selecione</option>
+                          {Array.from(
+                            {
+                              length: daysInMonth(
+                                Number(educationDateYear),
+                                Number(educationDateMonth)
+                              )
+                            },
+                            (_, index) => String(index + 1)
+                          ).map((day) => (
+                            <option key={day} value={day}>
+                              {day}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                  <div className="inline-form-actions">
+                    <button type="button" className="btn-inline-cancel" onClick={cancelEducationForm}>
+                      Cancelar
+                    </button>
+                    <button type="button" className="btn-inline-save" onClick={saveEducationDraft}>
+                      {editingEducationId ? 'Atualizar' : 'Adicionar'}
+                    </button>
+                  </div>
                 </div>
-              ))}
-              {form.education.length === 0 && (
-                <p className="insert-panel-empty">Nenhum curso cadastrado.</p>
               )}
+
+              <div className="experience-list">
+                {form.education.length === 0 && !showEducationForm && (
+                  <p className="insert-panel-empty">Nenhum curso cadastrado.</p>
+                )}
+                {form.education.map((edu) => (
+                  <div key={edu.id} className="education-item">
+                    <div className="experience-item-head">
+                      <div className="experience-item-left">
+                        <span className="material-symbols-outlined text-primary">school</span>
+                        <div className="experience-item-text">
+                          <h4 className="education-item-title">{edu.title ?? edu.name}</h4>
+                          {formatEducationSubtitle(edu) && (
+                            <p className="education-item-sub">{formatEducationSubtitle(edu)}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="experience-item-actions">
+                        <button
+                          type="button"
+                          className="experience-action-btn"
+                          title="Editar"
+                          onClick={() => openEditEducation(edu)}
+                        >
+                          <span className="material-symbols-outlined">edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="experience-action-btn experience-action-btn--delete"
+                          title="Excluir"
+                          onClick={() => removeEducation(edu.id)}
+                        >
+                          <span className="material-symbols-outlined">delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </section>
           </>
         )}
       </main>
 
-      <footer className="dashboard-footer">
-        <button
-          type="button"
-          className={`btn-save${isSaving ? ' btn-save--saving' : ''}${saveSucceeded ? ' btn-save--saved' : ''}`}
-          onClick={saveProfile}
-          disabled={!activeProfile || isSaving}
-        >
-          <span className={`material-symbols-outlined${isSaving ? ' spin' : ''}`}>
-            {isSaving ? 'progress_activity' : saveSucceeded ? 'check' : 'save'}
-          </span>
-          {isSaving ? 'Salvando…' : saveSucceeded ? 'Salvo!' : 'Salvar'}
-        </button>
-        <div className="dashboard-footer-actions">
+      {activeTab === 'profile' && (
+        <footer className="dashboard-footer">
           <button
             type="button"
-            className="btn-footer-icon btn-footer-icon--pdf"
-            title="Baixar currículo"
-            onClick={handleDownloadResume}
-            disabled={!activeProfile?.resumeId}
+            className={`btn-save${isSaving ? ' btn-save--saving' : ''}${saveSucceeded ? ' btn-save--saved' : ''}`}
+            onClick={saveProfile}
+            disabled={!activeProfile || isSaving}
           >
-            <span className="material-symbols-outlined">picture_as_pdf</span>
+            <span className={`material-symbols-outlined${isSaving ? ' spin' : ''}`}>
+              {isSaving ? 'progress_activity' : saveSucceeded ? 'check' : 'save'}
+            </span>
+            {isSaving ? 'Salvando…' : saveSucceeded ? 'Salvo!' : 'Salvar'}
           </button>
-        </div>
-      </footer>
+          <div className="dashboard-footer-actions">
+            <button
+              type="button"
+              className="btn-footer-icon btn-footer-icon--pdf"
+              title="Baixar currículo"
+              onClick={handleDownloadResume}
+              disabled={!activeProfile?.resumeId}
+            >
+              <span className="material-symbols-outlined">picture_as_pdf</span>
+            </button>
+          </div>
+        </footer>
+      )}
 
       {toast && (
         <div className={`dashboard-toast dashboard-toast--${toast.type}`} role="status">

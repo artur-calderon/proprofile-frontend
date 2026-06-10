@@ -1,0 +1,213 @@
+.account-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+  z-index: 100;
+}
+
+.account-panel {
+  width: 100%;
+  background: var(--surface, #fef7ff);
+  border-radius: 16px 16px 0 0;
+  padding: 20px;
+  max-height: 85%;
+  overflow-y: auto;
+}
+
+.account-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.account-panel-header h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.account-close-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--on-surface-variant, #49454f);
+}
+
+.account-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.account-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--primary-container, #eaddff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary, #6750a4);
+}
+
+.account-name {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.account-email {
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+  color: var(--on-surface-variant, #49454f);
+}
+
+.account-plan-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.account-plan-badge--free {
+  background: var(--surface-container-high, #e7e7f3);
+  color: var(--on-surface-variant, #434655);
+}
+
+.account-plan-badge--pro {
+  background: var(--secondary-container, #d0e1fb);
+  color: var(--on-secondary-fixed-variant, #38485d);
+}
+
+.account-plan-badge--premium {
+  background: var(--tertiary-fixed, #ffdbcd);
+  color: var(--on-tertiary-fixed-variant, #7d2d00);
+}
+
+.account-plan-badge .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.account-limits {
+  padding: 12px 14px;
+  background: var(--surface-container, #f3edf7);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  font-size: 0.8125rem;
+}
+
+.account-limits p {
+  margin: 0 0 8px;
+  font-weight: 500;
+}
+
+.account-limits ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--on-surface-variant, #49454f);
+}
+
+.account-upgrade {
+  margin-bottom: 16px;
+}
+
+.account-upgrade-title {
+  margin: 0 0 10px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.account-upgrade-btn {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--primary, #6750a4);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--primary, #6750a4);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+
+.account-upgrade-btn--premium {
+  background: var(--primary, #6750a4);
+  color: #fff;
+  border-color: var(--primary, #6750a4);
+}
+
+.account-upgrade-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.account-error {
+  color: #b3261e;
+  font-size: 0.8125rem;
+  margin-bottom: 12px;
+}
+
+.account-applications-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--secondary-container, #d0e1fb);
+  color: var(--on-secondary-fixed-variant, #38485d);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.account-logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--outline-variant, #cac4d0);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--on-surface-variant, #49454f);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.plan-badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.plan-badge--free {
+  background: var(--surface-container-high, #e7e7f3);
+  color: var(--on-surface-variant, #434655);
+}
+
+.plan-badge--pro {
+  background: var(--secondary-container, #d0e1fb);
+  color: var(--on-secondary-fixed-variant, #38485d);
+}
+
+.plan-badge--premium {
+  background: var(--tertiary-fixed, #ffdbcd);
+  color: var(--on-tertiary-fixed-variant, #7d2d00);
+}

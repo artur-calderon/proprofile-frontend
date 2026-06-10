@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Experience, Profile } from '../shared/types'
 import {
   formatExperienceCompany,
@@ -9,9 +9,15 @@ import {
   formatSkillsList,
   getProfileCompletion
 } from '../shared/profileFormatters'
+import { canCreateProfile, profileLimitMessage } from '../shared/planLimits'
 import storageService from '../services/storageService'
+import { fetchAndCacheProfiles } from '../services/profileSyncService'
 import downloadProfileResume from '../services/resumeFileService'
 import insertTextIntoPage from '../services/insertService'
+import { useAuth } from '../hooks/useAuth'
+import AuthScreen from '../components/AuthScreen'
+import AccountPanel, { PlanBadge } from '../components/AccountPanel'
+import ApplicationsPanel from '../components/ApplicationsPanel'
 import OptionsApp from '../options/App'
 import './popup.css'
 
@@ -22,28 +28,50 @@ function Loading() {
 type ExpandedSection = 'skills' | 'experience' | 'education' | null
 
 export default function App(): JSX.Element {
+  const { user, loading: authLoading, login, logout, refreshUser } = useAuth()
   const [profiles, setProfiles] = useState<Profile[] | null>(null)
+  const [profilesLoading, setProfilesLoading] = useState(false)
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [showDashboard, setShowDashboard] = useState(false)
   const [dashboardMode, setDashboardMode] = useState<'edit' | 'create'>('edit')
   const [expanded, setExpanded] = useState<ExpandedSection>(null)
   const [expandedExperienceId, setExpandedExperienceId] = useState<string | null>(null)
+  const [showAccount, setShowAccount] = useState(false)
+  const [showApplications, setShowApplications] = useState(false)
 
   const activeProfile = profiles?.find((p) => p.id === activeProfileId) ?? null
+  const allowCreateProfile = user ? canCreateProfile(user.plan, profiles?.length ?? 0) : false
 
-  useEffect(() => {
-    async function load() {
+  const loadProfiles = useCallback(async () => {
+    setProfilesLoading(true)
+    try {
+      const [p, a] = await Promise.all([
+        fetchAndCacheProfiles(),
+        storageService.getActiveProfileId()
+      ])
+      setProfiles(p)
+      if (a && p.some((x) => x.id === a)) setActiveProfileId(a)
+      else setActiveProfileId(p[0]?.id ?? null)
+    } catch {
       const [p, a] = await Promise.all([
         storageService.getAllProfiles(),
         storageService.getActiveProfileId()
       ])
       setProfiles(p)
       if (a && p.some((x) => x.id === a)) setActiveProfileId(a)
-      else setActiveProfileId(null)
+      else setActiveProfileId(p[0]?.id ?? null)
+      setMessage('Erro ao sincronizar. Usando dados locais.')
+      setTimeout(() => setMessage(null), 3000)
+    } finally {
+      setProfilesLoading(false)
     }
-    load()
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+    loadProfiles()
+  }, [user, loadProfiles])
 
   async function handleSelectProfile(id: string) {
     const nextId = id || null
@@ -71,6 +99,11 @@ export default function App(): JSX.Element {
   }
 
   function openDashboard(mode: 'edit' | 'create' = 'edit') {
+    if (mode === 'create' && !allowCreateProfile) {
+      setMessage(profileLimitMessage(user!.plan))
+      setTimeout(() => setMessage(null), 3000)
+      return
+    }
     setDashboardMode(mode)
     setShowDashboard(true)
   }
@@ -78,13 +111,7 @@ export default function App(): JSX.Element {
   async function closeDashboard() {
     setShowDashboard(false)
     setDashboardMode('edit')
-    const [p, id] = await Promise.all([
-      storageService.getAllProfiles(),
-      storageService.getActiveProfileId()
-    ])
-    setProfiles(p)
-    if (id && p.some((x) => x.id === id)) setActiveProfileId(id)
-    else setActiveProfileId(null)
+    await loadProfiles()
   }
 
   function toggleSection(section: ExpandedSection) {
@@ -93,6 +120,22 @@ export default function App(): JSX.Element {
 
   function toggleExperience(id: string) {
     setExpandedExperienceId((current) => (current === id ? null : id))
+  }
+
+  if (authLoading) {
+    return (
+      <div className="popup-shell">
+        <Loading />
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="popup-shell">
+        <AuthScreen onLogin={login} />
+      </div>
+    )
   }
 
   const skills = activeProfile?.skills ?? []
@@ -105,18 +148,20 @@ export default function App(): JSX.Element {
       {showDashboard ? (
         <OptionsApp
           embedded
+          user={user}
           onBack={closeDashboard}
           startInCreateMode={dashboardMode === 'create'}
+          onProfilesChange={loadProfiles}
         />
       ) : (
         <>
           <header className="popup-header">
-            <span className="popup-brand">ProProfile</span>
+            <div className="popup-header-brand">
+              <span className="popup-brand">ProProfile</span>
+              <PlanBadge plan={user.plan} />
+            </div>
             <div className="header-actions">
-              <button type="button" className="icon-btn" title="Notificações">
-                <span className="material-symbols-outlined">notifications</span>
-              </button>
-              <button type="button" className="icon-btn" title="Conta">
+              <button type="button" className="icon-btn" title="Conta" onClick={() => setShowAccount(true)}>
                 <span className="material-symbols-outlined">account_circle</span>
               </button>
             </div>
@@ -124,7 +169,7 @@ export default function App(): JSX.Element {
 
           <main className="popup-main custom-scrollbar">
             <div className="profile-selector-row">
-              {profiles === null ? (
+              {profiles === null || profilesLoading ? (
                 <Loading />
               ) : (
                 <div className="select-wrap">
@@ -154,6 +199,8 @@ export default function App(): JSX.Element {
                   type="button"
                   className={`btn-profile-action btn-profile-action--create${activeProfile ? ' btn-profile-action--secondary' : ''}`}
                   onClick={() => openDashboard('create')}
+                  disabled={!allowCreateProfile}
+                  title={!allowCreateProfile ? profileLimitMessage(user.plan) : undefined}
                 >
                   <span className="material-symbols-outlined">add</span>
                   Criar
@@ -161,7 +208,7 @@ export default function App(): JSX.Element {
               </div>
             </div>
 
-            {!profiles?.length && profiles !== null && (
+            {!profiles?.length && profiles !== null && !profilesLoading && (
               <p className="empty-text">
                 Nenhum perfil criado. Clique em <strong>Criar</strong> para abrir o dashboard.
               </p>
@@ -426,6 +473,20 @@ export default function App(): JSX.Element {
             </button>
           </footer>
         </>
+      )}
+
+      {showAccount && (
+        <AccountPanel
+          user={user}
+          onClose={() => setShowAccount(false)}
+          onLogout={logout}
+          onPlanUpdated={refreshUser}
+          onOpenApplications={() => setShowApplications(true)}
+        />
+      )}
+
+      {showApplications && user.plan === 'Premium' && (
+        <ApplicationsPanel onClose={() => setShowApplications(false)} />
       )}
 
       {message && <div className="toast-message">{message}</div>}

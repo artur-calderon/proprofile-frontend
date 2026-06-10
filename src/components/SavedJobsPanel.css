@@ -1,0 +1,228 @@
+.saved-jobs-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 1rem;
+}
+
+.saved-jobs-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--on-surface-variant, #49454f);
+}
+
+.saved-jobs-loading,
+.saved-jobs-empty {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--on-surface-variant, #49454f);
+}
+
+.saved-jobs-error {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #b3261e;
+}
+
+.saved-jobs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.saved-jobs-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface-container, #f3edf7);
+  border-radius: 12px;
+}
+
+.saved-jobs-item-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.saved-jobs-item-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.saved-jobs-item-description {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--on-surface-variant, #49454f);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.saved-jobs-item-meta {
+  font-size: 0.75rem;
+  color: var(--on-surface-variant, #49454f);
+}
+
+.saved-jobs-item-link {
+  font-size: 0.75rem;
+  color: var(--primary, #6750a4);
+}
+
+.saved-jobs-status-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.saved-jobs-status-select {
+  padding: 6px 8px;
+  border: 1px solid var(--outline, #79747e);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  background: var(--surface, #fef7ff);
+  color: var(--on-surface, #1d1b20);
+}
+
+.saved-jobs-status-select:disabled {
+  opacity: 0.6;
+}
+
+.saved-jobs-delete-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--on-surface-variant, #49454f);
+  flex-shrink: 0;
+}
+
+.saved-jobs-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--primary, #6750a4);
+  color: var(--on-primary, #fff);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.saved-jobs-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.saved-jobs-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.saved-jobs-input,
+.saved-jobs-textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--outline, #79747e);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: var(--surface, #fef7ff);
+  font-family: inherit;
+  resize: vertical;
+}
+
+.saved-jobs-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.saved-jobs-btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.saved-jobs-btn--secondary {
+  background: var(--surface-container, #f3edf7);
+  color: var(--on-surface, #1d1b20);
+}
+
+.saved-jobs-btn--primary {
+  background: var(--primary, #6750a4);
+  color: var(--on-primary, #fff);
+}
+
+.saved-jobs-btn--primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.saved-jobs-locked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem 1rem;
+  gap: 0.5rem;
+}
+
+.saved-jobs-locked-icon {
+  font-size: 2.5rem;
+  color: var(--on-surface-variant, #49454f);
+  opacity: 0.6;
+}
+
+.saved-jobs-locked h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.saved-jobs-locked p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--on-surface-variant, #49454f);
+}
+
+.saved-jobs-locked-hint {
+  font-size: 0.8125rem !important;
+  max-width: 280px;
+}
+
+.saved-jobs-upgrade-btn {
+  margin-top: 0.5rem;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 12px;
+  background: var(--primary, #6750a4);
+  color: var(--on-primary, #fff);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.saved-jobs-upgrade-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

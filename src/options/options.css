@@ -208,6 +208,37 @@ html.options-page body {
   border-radius: 0.25rem;
 }
 
+.dashboard-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 var(--container-padding);
+  border-bottom: 1px solid var(--outline-variant);
+}
+
+.dashboard-tab {
+  flex: 1;
+  padding: 0.625rem 0.5rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--on-surface-variant);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+
+.dashboard-tab:hover {
+  color: var(--on-surface);
+}
+
+.dashboard-tab--active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+
 .dashboard-icon-btn--primary:hover {
   background: rgba(37, 99, 235, 0.2);
 }
@@ -394,6 +425,7 @@ html.options-page body {
 }
 
 .field-input,
+.field-select,
 .field-textarea {
   width: 100%;
   background: var(--surface-container-lowest);
@@ -407,6 +439,7 @@ html.options-page body {
 }
 
 .field-input:focus,
+.field-select:focus,
 .field-textarea:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(0, 74, 198, 0.2);
@@ -812,6 +845,10 @@ html.options-page body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
+}
+
+.inline-form-row--3 {
+  grid-template-columns: 1fr 1fr 1fr;
 }
 
 .checkbox-row {

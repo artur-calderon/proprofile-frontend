@@ -1,5 +1,29 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
-/.parcel-cache
-/.env
-/*.log
+
+# Vite
+.vite/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Chrome extension packaging & signing (never commit private keys)
+*.crx
+*.pem
+*.zip
+
+# TypeScript
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db

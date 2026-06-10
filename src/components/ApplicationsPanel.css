@@ -1,0 +1,180 @@
+.applications-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+  z-index: 110;
+}
+
+.applications-panel {
+  width: 100%;
+  background: var(--surface, #fef7ff);
+  border-radius: 16px 16px 0 0;
+  padding: 20px;
+  max-height: 85%;
+  overflow-y: auto;
+}
+
+.applications-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.applications-panel-header h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.applications-close-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--on-surface-variant, #49454f);
+}
+
+.applications-hint {
+  margin: 0 0 16px;
+  font-size: 0.8125rem;
+  color: var(--on-surface-variant, #49454f);
+}
+
+.applications-loading,
+.applications-empty {
+  margin: 0 0 16px;
+  font-size: 0.875rem;
+  color: var(--on-surface-variant, #49454f);
+}
+
+.applications-error {
+  margin: 0 0 12px;
+  font-size: 0.8125rem;
+  color: #b3261e;
+}
+
+.applications-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.applications-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface-container, #f3edf7);
+  border-radius: 12px;
+}
+
+.applications-item-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.applications-item-position {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.applications-item-company {
+  font-size: 0.8125rem;
+  color: var(--on-surface-variant, #49454f);
+}
+
+.applications-item-meta {
+  font-size: 0.75rem;
+  color: var(--on-surface-variant, #49454f);
+}
+
+.applications-item-link {
+  font-size: 0.75rem;
+  color: var(--primary, #6750a4);
+  margin-top: 4px;
+}
+
+.applications-delete-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--on-surface-variant, #49454f);
+}
+
+.applications-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--primary, #6750a4);
+  color: var(--on-primary, #fff);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.applications-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.applications-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.applications-input {
+  padding: 10px 12px;
+  border: 1px solid var(--outline, #79747e);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: var(--surface, #fef7ff);
+}
+
+.applications-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.applications-btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.applications-btn--secondary {
+  background: var(--surface-container, #f3edf7);
+  color: var(--on-surface, #1d1b20);
+}
+
+.applications-btn--primary {
+  background: var(--primary, #6750a4);
+  color: var(--on-primary, #fff);
+}
+
+.applications-btn--primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

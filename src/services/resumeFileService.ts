@@ -1,5 +1,8 @@
 import pdfService from './pdfService'
 import storageService from './storageService'
+import { updateProfileResumeMeta, removeProfileResumeMeta } from './profileSyncService'
+import { resumeLimitMessage } from '../shared/planLimits'
+import type { PlanName } from '../shared/types/api'
 import { Profile, ResumePDF } from '../shared/types'
 
 const ALLOWED_MIME = [
@@ -39,9 +42,21 @@ async function removeResumeFile(resumeId: string): Promise<void> {
   await storageService.saveResumes(resumes.filter((r) => r.id !== resumeId))
 }
 
-export async function attachResumeToProfile(profile: Profile, file: File): Promise<Profile> {
+export async function attachResumeToProfile(
+  profile: Profile,
+  file: File,
+  plan?: PlanName,
+  allProfiles?: Profile[]
+): Promise<Profile> {
   if (!isAllowedResumeFile(file)) {
     throw new Error('Use um arquivo PDF, DOC ou DOCX.')
+  }
+
+  if (plan && allProfiles && !profile.resumeId) {
+    const attachmentCount = allProfiles.filter((p) => p.resumeId).length
+    if (attachmentCount >= 1 && plan === 'Free') {
+      throw new Error(resumeLimitMessage(plan))
+    }
   }
 
   if (profile.resumeId) {
@@ -63,17 +78,15 @@ export async function attachResumeToProfile(profile: Profile, file: File): Promi
   resumes.push(meta)
   await storageService.saveResumes(resumes)
 
-  const updated: Profile = { ...profile, resumeId: id }
-  await storageService.updateProfile(updated)
+  const updated: Profile = { ...profile, resumeId: id, resumeFileName: file.name }
+  await updateProfileResumeMeta(updated, file.name, id)
   return updated
 }
 
 export async function removeResumeFromProfile(profile: Profile): Promise<Profile> {
   if (!profile.resumeId) return profile
   await removeResumeFile(profile.resumeId)
-  const updated: Profile = { ...profile, resumeId: null }
-  await storageService.updateProfile(updated)
-  return updated
+  return removeProfileResumeMeta(profile)
 }
 
 export async function downloadProfileResume(
